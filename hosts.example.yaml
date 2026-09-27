@@ -1,0 +1,45 @@
+ssh:
+  users:
+    - opscontrol
+  ports:
+    - 22
+  key_path: ~/.ssh/id_ed25519
+  timeout: 6
+  strict_host_key: true
+
+hosts:
+  - key: web-01
+    name: srv-web-01
+    ip: 192.0.2.21
+    role: Web server
+    environment: Production
+    criticality: high
+    services: [nginx, application]
+  - key: db-01
+    name: srv-db-01
+    ip: 192.0.2.22
+    role: Database server
+    environment: Production
+    criticality: high
+    services: [postgresql]
+  - key: waf-01
+    name: srv-waf-01
+    ip: 192.0.2.23
+    role: WAF ModSecurity
+    environment: Production
+    criticality: critical
+    services: [apache2, fail2ban]
+  - key: backup-01
+    name: srv-backup-01
+    ip: 198.51.100.31
+    role: Backup server
+    environment: Production
+    criticality: high
+    services: [bacula]
+  - key: monitor-01
+    name: srv-monitor-01
+    ip: 198.51.100.32
+    role: Monitoring server
+    environment: Production
+    criticality: high
+    services: [zabbix-server]

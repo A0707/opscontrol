@@ -1,0 +1,52 @@
+const {chromium}=require('./data/browser-test/node_modules/playwright');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({channel:'msedge',headless:true});
+ try{
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ const now=new Date().toISOString();
+ const host={key:'web',name:'Serveur web',ip:'192.0.2.10',registered:true,active_scope:true,status:'unknown',services:[],checks:[],findings:[],batches:[],audit_recorded:true,coverage:{measured:12,total:16}};
+ const jobs=Array.from({length:61},(_,i)=>({id:String(i),name:i===0?'<script>secret</script>':'Traitement '+i,kind:i%2?'cron':'systemd',source:'/etc/cron.d/application',host_key:'web',host_name:'Serveur web',state:i%2?'scheduled':'failed',fresh:true,schedule:'15 2 * * *',timezone:'Africa/Casablanca',last_run:null,next_run:null,collected_at:now,owner:'app',evidence:'Résultat non mesuré'}));
+ const daily={generated_at:now,counts:{inventory:84,registered:50,online:48,audit_recorded:15,audit_missing:69,critical_recent:3,api_fresh:4,api_total:5},policy:'Audits conservés et sources actualisées.',priorities:[{host_key:'web',host_name:'Serveur web',title:'Disque à 94 %',severity:'critical',collected_at:now,stale:false},{host_key:'web',host_name:'Serveur web',title:'Ancienne alerte à confirmer',severity:'warning',collected_at:now,stale:true}],sources:[{name:'Cluster Proxmox',provider:'Proxmox',fresh:true,collected_at:now},{name:'Elastic logs',provider:'Elasticsearch',fresh:true,collected_at:now,indicators:{cluster_status:'yellow',unassigned_shards:950}},{name:'Wazuh manager',provider:'Wazuh',fresh:true,collected_at:now},{name:'Zabbix',provider:'Zabbix',fresh:true,collected_at:now},{name:'Bacula',provider:'Bacula',fresh:false,collected_at:now,error:'Tunnel indisponible'}],attention:[{key:'web',name:'Serveur web',ip:'192.0.2.10',issues:['Clé SSH non vérifiée']}],batches:{counts:{running:2,scheduled:30},fresh_failures:4,fresh_hosts:15,hosts_total:84}};
+ await page.route('http://opscontrol.test/**',async route=>{
+  const url=new URL(route.request().url());let data;
+  if(url.pathname==='/api/overview')data={hosts:[host],job:{running:false},monitoring:{interval:300},jobs:{ssh:{running:false},batch:{running:false}}};
+  else if(url.pathname==='/api/daily')data=daily;
+  else if(url.pathname==='/api/batches')data={jobs,coverage:[{host_key:'web',name:'Serveur web',fresh:true,limitations:['Autres comptes non audités']}],job:{running:false}};
+  else if(url.pathname==='/api/hosts/web')data=host;
+  else if(url.pathname.startsWith('/api/'))data=[];
+  if(data!==undefined)return route.fulfill({json:data});
+  const file=path.join(__dirname,'web',url.pathname==='/'?'index.html':url.pathname);
+  return route.fulfill({body:fs.readFileSync(file),contentType:file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html',headers:{'Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'"}});
+ });
+ await page.goto('http://opscontrol.test/');
+ await page.getByRole('heading',{name:'Priorités du jour'}).waitFor();
+ await page.getByText('Preuve ancienne',{exact:true}).waitFor();
+ await page.screenshot({path:'data/daily-preview.png',fullPage:true});
+ await page.locator('#nav [data-page="Batch / Planification"]').click();
+ await page.locator('#batch-results tbody tr').first().waitFor();
+ assert.equal(await page.locator('#batch-results tbody tr').count(),50);
+ assert.equal(await page.locator('#batch-results script').count(),0);
+ await page.getByRole('button',{name:'Suivant',exact:true}).click();
+ assert.equal(await page.locator('#batch-results tbody tr').count(),11);
+ await page.locator('#batch-kind').selectOption('cron');
+ assert.equal(await page.locator('#batch-results tbody tr').count(),30);
+ await page.locator('#batch-search').fill('Traitement 1');
+ assert.equal(await page.locator('#batch-results tbody tr').count(),6);
+ assert.equal(await page.locator('#batch-search').evaluate(e=>e===document.activeElement),true);
+ await page.evaluate(()=>loadBatches());
+ assert.equal(await page.locator('#batch-search').inputValue(),'Traitement 1');
+ assert.equal(await page.locator('#batch-search').evaluate(e=>e===document.activeElement),true);
+ await page.screenshot({path:'data/batch-preview.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ await page.locator('#mobile-nav').selectOption('Vue globale');
+ await page.getByRole('heading',{name:'Priorités du jour'}).waitFor();
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ await page.keyboard.press('Tab');
+ assert.notEqual(await page.evaluate(()=>document.activeElement.tagName),'BODY');
+ assert.deepEqual(errors,[]);
+ console.log('PASS: daily summary, old evidence, escaped batch names, pagination, filters, stable focus, mobile and keyboard');
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1});

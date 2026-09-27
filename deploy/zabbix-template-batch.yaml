@@ -1,0 +1,78 @@
+zabbix_export:
+  version: '6.4'
+  template_groups:
+    - uuid: d1668377fd8644cead4b607d22647ab1 # pragma: allowlist secret -- Zabbix object UUID
+      name: Templates/Applications
+  templates:
+    - uuid: d8cdd3a6d5ef4e758510991be62d6bee # pragma: allowlist secret -- Zabbix object UUID
+      template: 'OpsControl Batch'
+      name: 'OpsControl Batch'
+      description: |
+        Résultat des traitements batch enveloppés par /usr/local/bin/opscontrol-batch-report.
+        Items PASSIFS (agent, port 10050) : le port 10051 du serveur Zabbix est fermé
+        depuis les serveurs batch, zabbix_sender n'y fonctionne pas.
+        Prérequis sur l'hôte : deploy/zabbix-agent-opscontrol-batch.conf (UserParameter).
+        {$BATCH.MAXAGE} : délai maximal entre deux fins d'exécution avant « non exécuté ».
+        Défaut 26h (quotidien). Par batch : {$BATCH.MAXAGE:"batch_bilan.mensuel"} = 32d.
+      groups:
+        - name: Templates/Applications
+      macros:
+        - macro: '{$BATCH.MAXAGE}'
+          value: 26h
+          description: 'Délai max entre deux fins d''exécution (contexte = nom du batch)'
+      discovery_rules:
+        - uuid: caaadfe20d2e44e2b38ad0a318893ed3 # pragma: allowlist secret -- Zabbix object UUID
+          name: 'Batchs OpsControl'
+          key: opscontrol.batch.discovery
+          delay: 5m
+          lifetime: 400d
+          description: 'Un batch apparaît dès sa première exécution enveloppée. Durée de vie longue : un batch mensuel ou annuel ne doit pas disparaître entre deux passages.'
+          item_prototypes:
+            - uuid: 51200ebf7e964afdbd9b4918a21bb73b # pragma: allowlist secret -- Zabbix object UUID
+              name: 'Batch {#BATCH} : code de sortie'
+              key: 'opscontrol.batch.rc[{#BATCH}]'
+              delay: 1m
+              history: 90d
+              description: '0 = succès ; -1 = aucune exécution terminée depuis la mise en place.'
+              tags:
+                - tag: component
+                  value: batch
+              trigger_prototypes:
+                - uuid: 65efe90bcc514fe3ab9b5c014a758dc3 # pragma: allowlist secret -- Zabbix object UUID
+                  expression: 'last(/OpsControl Batch/opscontrol.batch.rc[{#BATCH}])>0'
+                  name: 'Batch {#BATCH} en échec (code {ITEM.LASTVALUE})'
+                  priority: HIGH
+                  description: 'Le dernier passage terminé a rendu un code différent de 0. Se referme au prochain passage réussi.'
+            - uuid: 7452d0f4e3bc4c3aa27f08414d14508d # pragma: allowlist secret -- Zabbix object UUID
+              name: 'Batch {#BATCH} : début'
+              key: 'opscontrol.batch.started[{#BATCH}]'
+              delay: 1m
+              history: 90d
+              units: unixtime
+              tags:
+                - tag: component
+                  value: batch
+            - uuid: 3b1f0c9e2a7d4e5f8c6b0a1d2e3f4a5b # pragma: allowlist secret -- Zabbix object UUID
+              name: 'Batch {#BATCH} : fin'
+              key: 'opscontrol.batch.finished[{#BATCH}]'
+              delay: 1m
+              history: 90d
+              units: unixtime
+              tags:
+                - tag: component
+                  value: batch
+              trigger_prototypes:
+                - uuid: 260e229b5d4142cfb3dcbaca690c47a4 # pragma: allowlist secret -- Zabbix object UUID
+                  expression: 'last(/OpsControl Batch/opscontrol.batch.finished[{#BATCH}])>0 and now()-last(/OpsControl Batch/opscontrol.batch.finished[{#BATCH}])>{$BATCH.MAXAGE:"{#BATCH}"}'
+                  name: 'Batch {#BATCH} non exécuté depuis {$BATCH.MAXAGE:"{#BATCH}"}'
+                  priority: HIGH
+                  description: 'Aucune fin d''exécution dans le délai attendu : le batch ne s''est pas lancé ou est bloqué. C''est la panne la plus silencieuse.'
+            - uuid: e6530fe62c4848cc8bdafa0f09b50389 # pragma: allowlist secret -- Zabbix object UUID
+              name: 'Batch {#BATCH} : durée'
+              key: 'opscontrol.batch.duration[{#BATCH}]'
+              delay: 1m
+              history: 90d
+              units: s
+              tags:
+                - tag: component
+                  value: batch

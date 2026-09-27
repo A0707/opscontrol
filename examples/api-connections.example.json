@@ -1,0 +1,18 @@
+[
+  {
+    "key": "proxmox-demo",
+    "name": "Proxmox Demo",
+    "provider": "Proxmox",
+    "url": "https://pve.demo.local:8006/api2/json/cluster/resources",
+    "token_env": "OPSCONTROL_PROXMOX_AUTH",
+    "host_key": "monitor-01"
+  },
+  {
+    "key": "zabbix-demo",
+    "name": "Zabbix Demo",
+    "provider": "Zabbix",
+    "url": "https://zabbix.demo.local/api_jsonrpc.php",
+    "token_env": "OPSCONTROL_ZABBIX_AUTH",
+    "host_key": "monitor-01"
+  }
+]

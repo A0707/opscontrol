@@ -1,0 +1,13 @@
+{
+  "generated_at": null,
+  "scope": "fictional public example",
+  "summary": {
+    "servers": 5,
+    "documented": 5,
+    "needs_review": 0
+  },
+  "notes": [
+    "Copy hosts.example.yaml to hosts.yaml and replace the fictional records locally.",
+    "Operational inventory reports are excluded from Git."
+  ]
+}
